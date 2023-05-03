@@ -1,13 +1,19 @@
 # cloud_lambda_functions_email_notification
 python lambda functions for email notification using SES, SNS in AWS
 
-lambda_ses.py file have the python lambda code for automate the event notification through email. using Simple Email Service (SES) in AWS
-lambda_sns.py file have the python lambda code for automate the event notification through email. using Notification service (SNS) in AWS
+Send email notfication using Simple Notification Service(SNS) : 
+1. create a SNS topic
+2. create subscribtion, subscribe using our email id, verify that with our email
+3. create an IAM role for lambda function with S3, Cloudwatch, SNS access
+4. create lambda function, attach the role that we created with this lambda function
+5. add trigger , select s3 as trigger and select the bucket also
+6. write the code and compile it(lambda_sns.py)
+7. verify the code is working or not for that upload a file into you s3 and check email notification
 
-whenever a file uploaded into a s3 bucket that used to trigger the lambda function . this function will send a notification to the destination 
-email address from source address that we menstion in the code
-before trigerring this code we have to verify source and destinatin email with SES and SNS 
-in SES we can simply verify using identity verification in SES
-in SNS we have to create a topic and crete subscription using our email id using the Subscription option yhen only it will work
-we have to give permission for lambda fuction to do this, give permission for S3 access, cloudwatch access and SES and SNS access
-create a role with access and assign that role with lambda function while creating the lambda function
+Send email notfication using Simple Email Service(SES):
+1. verify your email with SES
+2. create lambda function with needed access(assign role with S3, cloudwatch, SES access and attach with lambda)
+3. add trigger (s3, select bucket)
+4. write the python code in the code section(lambda_ses.py)
+5. verify the code is working or not by uploading a file into your bucket and check the email is coming or not.
+6. you can also verify through cloudwath logs
