@@ -1,0 +1,36 @@
+import json
+import boto3
+
+def lambda_handler(event, context):
+    # TODO implement
+    print(event)
+    s3 = boto3.client('s3')
+
+    bucket_name = event['detail']['requestParameters']['bucketName']
+    
+    response = s3.get_public_access_block(
+        Bucket=bucket_name
+    )
+    
+    public_access_block = response['PublicAccessBlockConfiguration']
+    
+    if public_access_block['BlockPublicAcls'] and public_access_block['IgnorePublicAcls'] and public_access_block['BlockPublicPolicy'] and public_access_block['RestrictPublicBuckets']:
+        print('Block Public Access is enabled')
+    else:
+        print('Block Public Access is not enabled')
+        response = s3.put_public_access_block(
+        Bucket=bucket_name,
+        PublicAccessBlockConfiguration={
+            'BlockPublicAcls': True,
+            'IgnorePublicAcls': True,
+            'BlockPublicPolicy': True,
+            'RestrictPublicBuckets': True
+        }
+    )
+    
+    print(response)
+        
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Hello from Lambda!')
+    }
