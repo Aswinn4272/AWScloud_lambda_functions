@@ -17,3 +17,9 @@ Send email notfication using Simple Email Service(SES):
 4. write the python code in the code section(lambda_ses.py)
 5. verify the code is working or not by uploading a file into your bucket and check the email is coming or not.
 6. you can also verify through cloudwath logs
+
+s3-public access enabling usinglambda
+1. whenever a new bucket is created and the block public access is not enabled
+2. the lambda function will trigger using s3 create bucket event
+3. the lambda function will enable the block public access option in s3
+4. using boto3 s3 client
