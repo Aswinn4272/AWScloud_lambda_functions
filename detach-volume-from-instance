@@ -1,0 +1,27 @@
+import boto3
+import json
+
+# Create an EC2 client
+def lambda_handler(event, context):
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_volumes()
+    print("response volumes is: ", response["Volumes"])
+    unencrypted_instances=[]
+    volumeid = []
+    for i in response["Volumes"]:
+        if i["Encrypted"]:
+            print(i["Attachments"][0]["InstanceId"], "is Encripted")
+        else:
+            print(i["Attachments"][0]["InstanceId"], "is Not-Encripted")
+            unencrypted_instances.append(i["Attachments"][0]["InstanceId"])
+            volumeid.append(i['VolumeId'])
+    print(unencrypted_instances)         
+    print(volumeid)
+    
+    # Detach the volume
+    for i in range(len(unencrypted_instances)):
+        response = ec2.detach_volume(
+            VolumeId = volumeid[i],
+            InstanceId = unencrypted_instances[i]
+        )
+        print(response)
