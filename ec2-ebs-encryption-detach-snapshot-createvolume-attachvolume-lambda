@@ -1,0 +1,80 @@
+import boto3
+import json
+import time
+
+
+# Create an EC2 client
+def lambda_handler(event, context):
+    ec2 = boto3.client('ec2')
+    response = ec2.describe_volumes()
+    print("response volumes is: ", response["Volumes"])
+    unencrypted_instances=[]
+    volumeid = []
+    for i in response["Volumes"]:
+        if i["Encrypted"]:
+            print(i["Attachments"][0]["InstanceId"], "is Encripted")
+        else:
+            print(i["Attachments"][0]["InstanceId"], "is Not-Encripted")
+            unencrypted_instances.append(i["Attachments"][0]["InstanceId"])
+            volumeid.append(i['VolumeId'])
+    print(unencrypted_instances)         
+    print(volumeid)
+    
+    # Detach the volume
+    for i in range(len(unencrypted_instances)):
+        response = ec2.detach_volume(
+            VolumeId = volumeid[i],
+            InstanceId = unencrypted_instances[i]
+        )
+        print(response)
+    
+    #create the snapshot    
+    for i in volumeid:
+        response = ec2.create_snapshot(
+            VolumeId = i,
+            Description = 'My snapshot'
+        )
+    
+    time.sleep(10)
+    print("after creating the snapshot")
+    
+    
+    
+    print("going to create a new encrypted volume")
+    ec2r = boto3.resource('ec2')
+    
+    for i in volumeid:
+        volume = ec2r.Volume(i)
+        
+        # Print the snapshot ID of each snapshot associated with the volume
+        for snapshot in volume.snapshots.all():
+            snapid = snapshot.id
+            print(snapid)
+
+        response = ec2.create_volume(
+            SnapshotId = snapid,
+            AvailabilityZone='us-west-2a',
+            VolumeType='gp2',
+            Encrypted=True,
+            KmsKeyId='arn:aws:kms:us-west-2:850054986759:key/63b0167b-438b-45e0-9a64-a716de63825b'
+        )
+        print(response)
+        print("new encrypted volume created successfully")
+    
+    time.sleep(10)
+    
+    res = ec2.describe_volumes()
+    vol = []
+    for i in res["Volumes"]:
+        vol.append(i['VolumeId'])
+    
+    print("volume id's :", vol)
+    
+    response = ec2.attach_volume(
+        VolumeId= vol[-1],
+        InstanceId= unencrypted_instances[0],
+        Device='/dev/xvda'
+    )
+    
+    print(response)
+    print("new encrypted volume attached to instance")
