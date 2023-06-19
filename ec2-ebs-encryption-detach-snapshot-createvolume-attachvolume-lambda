@@ -56,7 +56,7 @@ def lambda_handler(event, context):
             AvailabilityZone='us-west-2a',
             VolumeType='gp2',
             Encrypted=True,
-            KmsKeyId='arn:aws:kms:us-west-2:850054986759:key/63b0167b-438b-45e0-9a64-a716de63825b'
+            KmsKeyId='arn:aws:kms:us-west-2:abcd'     #Replace region and abcd with your kms arn
         )
         print(response)
         print("new encrypted volume created successfully")
