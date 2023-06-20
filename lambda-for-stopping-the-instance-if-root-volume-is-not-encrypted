@@ -1,0 +1,34 @@
+import boto3
+import json
+
+def lambda_handler(event, context):
+    print("event is :",event)
+    print("body part is :", event['body'])
+    body_1 = json.loads(event['body'])
+    print("this is json body :", body_1)
+    print("result :", body_1['result'])
+    raw = json.loads(body_1["result"]["_raw"])
+    instanceid = raw["responseElements"]['instancesSet']['items'][0]['instanceId']
+    print("instanceid =", instanceid)
+    
+    ec2_client = boto3.client('ec2')
+    response = ec2_client.describe_volumes(Filters=[{'Name': 'attachment.instance-id', 'Values': [instanceid]}])
+    print("response volumes is: ", response["Volumes"])
+    
+   
+    if response["Volumes"][0]["Encrypted"]:
+        print(instanceid, "is Encripted")
+    else:
+        print(instanceid, "is Not-Encripted")
+        
+
+        ec2_state = ec2_client.describe_instances(
+            InstanceIds=[instanceid]
+        )
+        print(ec2_state)
+        
+        if(ec2_state['Reservations'][0]['Instances'][0]['State']['Name'] == "running"):
+            # stop the instance
+            response = ec2_client.stop_instances(
+                InstanceIds=[instanceid]
+            )
