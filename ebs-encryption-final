@@ -1,0 +1,78 @@
+import boto3
+import json
+import time
+
+def lambda_handler(event, context):
+    body_1 = json.loads(event['body'])
+    raw = json.loads(body_1["result"]["_raw"])
+    instanceid = raw["responseElements"]['instancesSet']['items'][0]['instanceId']
+    print("instanceid =", instanceid)
+    
+    ec2_client = boto3.client('ec2')
+    response = ec2_client.describe_volumes(Filters=[{'Name': 'attachment.instance-id', 'Values': [instanceid]}])
+    print("response volumes is: ", response["Volumes"])
+    volume_id = response["Volumes"][0]['VolumeId']
+    print("volumeid = ", volume_id)
+    
+    
+    
+    
+    #checking if the newly added volume is not encrypted or not-encrypted, if it is not encrypted we have to stop the instance
+    if response["Volumes"][0]["Encrypted"]:
+        print(instanceid, "is Encripted")
+    else:
+        print(instanceid, "is Not-Encripted")
+        ec2_state = ec2_client.describe_instances(
+            InstanceIds=[instanceid]
+        )
+        print(ec2_state)
+        #checking the instance is running or not, if it is running we have to stop that
+        if(ec2_state['Reservations'][0]['Instances'][0]['State']['Name'] == "running"):
+            # stop the instance
+            response = ec2_client.stop_instances(
+                InstanceIds=[instanceid]
+            )
+    
+        #wait until the instance is stopped
+        time.sleep(30)
+        #detach the volume from the instance
+        response = ec2_client.detach_volume(
+                VolumeId = volume_id,
+                InstanceId = instanceid
+            )
+        print("volume is detached successfully")
+        
+        
+        #create the snapshot    
+        response = ec2_client.create_snapshot(
+                VolumeId = volume_id,
+                Description = 'My snapshot'
+            )
+        #wait until the snapshot is created    
+        time.sleep(2)
+        print("snapshot created successfully")
+        
+        #fetching the snap id
+        snapshots = ec2_client.describe_snapshots(
+            Filters=[
+                {'Name': 'volume-id', 'Values': [volume_id]}
+            ]
+        )['Snapshots']
+        snap_id = snapshots[0]['SnapshotId']
+        print("snapshot id = ", snap_id)
+        
+        
+        #creating a new encrypted volume using the snapshot
+        response = ec2_client.create_volume(
+            SnapshotId = snap_id,
+            AvailabilityZone='us-west-2a',
+            VolumeType='gp2',
+            Encrypted=True,
+            KmsKeyId='arn:aws:kms:us-west-2:911789896853:key/79bffecb-aec4-4731-a536-4d5308857eb0'     #Replace region and abcd with your kms arn
+        )
+        time.sleep(10)
+        print("new encrypted volume created successfully")
+        print("response of newly created volume = ", response)
+        
+        
+        
