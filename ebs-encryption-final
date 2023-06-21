@@ -49,7 +49,7 @@ def lambda_handler(event, context):
                 Description = 'My snapshot'
             )
         #wait until the snapshot is created    
-        time.sleep(2)
+        time.sleep(10)
         print("snapshot created successfully")
         
         #fetching the snap id
@@ -61,18 +61,44 @@ def lambda_handler(event, context):
         snap_id = snapshots[0]['SnapshotId']
         print("snapshot id = ", snap_id)
         
-        
+        time.sleep(60)
         #creating a new encrypted volume using the snapshot
         response = ec2_client.create_volume(
             SnapshotId = snap_id,
             AvailabilityZone='us-west-2a',
             VolumeType='gp2',
             Encrypted=True,
-            KmsKeyId='arn:aws:kms:us-west-2:911789896853:key/79bffecb-aec4-4731-a536-4d5308857eb0'     #Replace region and abcd with your kms arn
+            KmsKeyId='arn:aws:kms:us-west-2:854409832529:key/7dddabe8-034d-4624-a201-a398b109e36f'     #Replace region and abcd with your kms arn
         )
         time.sleep(10)
         print("new encrypted volume created successfully")
         print("response of newly created volume = ", response)
+        e_vol_id = response['VolumeId']
+        print("new encrypted volume id = ", e_vol_id)
+        
+        
+        response = ec2_client.attach_volume(
+            VolumeId= e_vol_id,
+            InstanceId= instanceid,
+            Device='/dev/xvda'
+        )
+        print(response)
+        print("new encrypted volume attached to instance successfully")
+        
+        #delete unencrypted volume
+        ec2r = boto3.resource('ec2')
+        volume = ec2r.Volume(volume_id)
+        response = volume.delete()
+        print("after successfull deletion of unencrypted volume ", response)
+        
+        time.sleep(200)
+        
+        response = ec2_client.start_instances(
+            InstanceIds=[instanceid]
+        )
+        print("successfully completed")
+
+        
         
         
         
