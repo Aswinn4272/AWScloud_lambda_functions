@@ -63,20 +63,29 @@ def lambda_handler(event, context):
         
         time.sleep(60)
         #creating a new encrypted volume using the snapshot
-        response = ec2_client.create_volume(
-            SnapshotId = snap_id,
-            AvailabilityZone='us-west-2a',
-            VolumeType='gp2',
-            Encrypted=True,
-            KmsKeyId='arn:aws:kms:us-west-2:854409832529:key/7dddabe8-034d-4624-a201-a398b109e36f'     #Replace region and abcd with your kms arn
-        )
+        s=ec2_client.describe_snapshots(Filters=[{'Name':'volume-id','Values':[volume_id]}])
+        snap_id = s['Snapshots'][0]['SnapshotId']
+        state = s['Snapshots'][0]['State']
+        while(1):
+            if state == 'completed':
+                response = ec2_client.create_volume(
+                    SnapshotId = snap_id,
+                    AvailabilityZone='us-west-2a',
+                    VolumeType='gp2',
+                    Encrypted=True,
+                    KmsKeyId='alias/aws/ebs'    #Replace region and abcd with your kms arn
+                )
+                print("new encrypted volume created successfully")
+                print("response of newly created volume = ", response)
+                e_vol_id = response['VolumeId']
+                print("new encrypted volume id = ", e_vol_id)
+                break
+            else:
+                s=ec2_client.describe_snapshots(Filters=[{'Name':'volume-id','Values':[volume_id]}])
+                state = s['Snapshots'][0]['State']
+        
+        
         time.sleep(10)
-        print("new encrypted volume created successfully")
-        print("response of newly created volume = ", response)
-        e_vol_id = response['VolumeId']
-        print("new encrypted volume id = ", e_vol_id)
-        
-        
         response = ec2_client.attach_volume(
             VolumeId= e_vol_id,
             InstanceId= instanceid,
@@ -91,13 +100,17 @@ def lambda_handler(event, context):
         response = volume.delete()
         print("after successfull deletion of unencrypted volume ", response)
         
-        time.sleep(200)
         
-        response = ec2_client.start_instances(
-            InstanceIds=[instanceid]
-        )
-        print("successfully completed")
-
+        v = ec2_client.describe_volumes(VolumeIds=[e_vol_id])
+        while(1):
+            if v['Volumes'][0]['State']=='in-use':
+                response = ec2_client.start_instances(
+                    InstanceIds=[instanceid]
+                )
+                print("successfully completed")
+                break
+            else:
+                v = ec2_client.describe_volumes(VolumeIds=[e_vol_id])
         
         
         
