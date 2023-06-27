@@ -3,8 +3,11 @@ import json
 import time
 
 def lambda_handler(event, context):
+    print("event = ",event)
     body_1 = json.loads(event['body'])
+    print("body = ", body_1)
     raw = json.loads(body_1["result"]["_raw"])
+    print("raw = ", raw)
     instanceid = raw["responseElements"]['instancesSet']['items'][0]['instanceId']
     print("instanceid =", instanceid)
     
@@ -13,8 +16,10 @@ def lambda_handler(event, context):
     print("response volumes is: ", response["Volumes"])
     volume_id = response["Volumes"][0]['VolumeId']
     print("volumeid = ", volume_id)
-    
-    
+    avail_zone = response['Volumes'][0]['AvailabilityZone']
+    print("availability zone = ", avail_zone)
+    device = response["Volumes"][0]['Attachments'][0]['Device']
+    print("device = ", device)
     
     
     #checking if the newly added volume is not encrypted or not-encrypted, if it is not encrypted we have to stop the instance
@@ -32,9 +37,17 @@ def lambda_handler(event, context):
             response = ec2_client.stop_instances(
                 InstanceIds=[instanceid]
             )
-    
+        
+        r=ec2_client.describe_instances(InstanceIds=[instanceid])
+        status=r['Reservations'][0]['Instances'][0]['State']['Name']
+        while(True):
+            if(status == 'stopped'):
+                break
+            else:
+                r=ec2_client.describe_instances(InstanceIds=[instanceid])
+                status=r['Reservations'][0]['Instances'][0]['State']['Name']
         #wait until the instance is stopped
-        time.sleep(30)
+        
         #detach the volume from the instance
         response = ec2_client.detach_volume(
                 VolumeId = volume_id,
@@ -61,7 +74,6 @@ def lambda_handler(event, context):
         snap_id = snapshots[0]['SnapshotId']
         print("snapshot id = ", snap_id)
         
-        time.sleep(60)
         #creating a new encrypted volume using the snapshot
         s=ec2_client.describe_snapshots(Filters=[{'Name':'volume-id','Values':[volume_id]}])
         snap_id = s['Snapshots'][0]['SnapshotId']
@@ -70,7 +82,7 @@ def lambda_handler(event, context):
             if state == 'completed':
                 response = ec2_client.create_volume(
                     SnapshotId = snap_id,
-                    AvailabilityZone='us-west-2a',
+                    AvailabilityZone=avail_zone,
                     VolumeType='gp2',
                     Encrypted=True,
                     KmsKeyId='alias/aws/ebs'    #Replace region and abcd with your kms arn
@@ -89,7 +101,7 @@ def lambda_handler(event, context):
         response = ec2_client.attach_volume(
             VolumeId= e_vol_id,
             InstanceId= instanceid,
-            Device='/dev/xvda'
+            Device=device
         )
         print(response)
         print("new encrypted volume attached to instance successfully")
@@ -111,7 +123,5 @@ def lambda_handler(event, context):
                 break
             else:
                 v = ec2_client.describe_volumes(VolumeIds=[e_vol_id])
-        
-        
         
         
